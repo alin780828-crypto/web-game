@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<title>Shooting Game</title>
+<style>
+  body {
+    background:#111;
+    text-align:center;
+  }
+  canvas {
+    background:#000;
+    border:2px solid #555;
+    margin-top:20px;
+  }
+</style>
+</head>
+<body>
+
+<canvas id="gameCanvas" width="800" height="600"></canvas>
+
+<script>
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+
+/* ===== 圖片 ===== */
+const playerImage = new Image();
+playerImage.src = "https://drive.google.com/thumbnail?id=1-eyvgYq-ExwdL0IL6OBuWgFCP7b1zxh0";
+
+const enemyImage = new Image();
+enemyImage.src = "https://drive.google.com/thumbnail?id=1x0riRx-Ca4RQ5VZQuDUzYgSPmGWW5sGz";
+
+/* ===== 玩家 ===== */
+const player = {
+  x: 375,
+  y: 520,
+  width: 50,
+  height: 50,
+  speed: 5,
+  health: 3,
+  cooldown: 0
+};
+
+/* ===== 物件 ===== */
+const bullets = [];
+const enemies = [];
+const enemyBullets = [];
+
+/* ===== 按鍵狀態（關鍵） ===== */
+const keys = {
+  ArrowLeft: false,
+  ArrowRight: false,
+  ArrowUp: false,
+  ArrowDown: false
+};
+
+/* ===== 工具 ===== */
+function hit(a, b) {
+  return a.x < b.x + b.width &&
+         a.x + a.width > b.x &&
+         a.y < b.y + b.height &&
+         a.y + a.height > b.y;
+}
+
+/* ===== 玩家射擊 ===== */
+function shoot() {
+  if (player.cooldown > 0) return;
+  bullets.push({
+    x: player.x + player.width / 2 - 3,
+    y: player.y,
+    width: 6,
+    height: 15,
+    speed: 8
+  });
+  player.cooldown = 15;
+}
+
+/* ===== 建立敵人 ===== */
+function createEnemy() {
+  enemies.push({
+    x: Math.random() * (canvas.width - 50),
+    y: -50,
+    width: 50,
+    height: 50
+  });
+}
+
+/* ===== 敵人射擊 ===== */
+function enemyShoot(enemy) {
+  enemyBullets.push({
+    x: enemy.x + enemy.width / 2 - 3,
+    y: enemy.y + enemy.height,
+    width: 6,
+    height: 15,
+    speed: 4
+  });
+}
+
+/* ===== 玩家移動（順的關鍵） ===== */
+function movePlayer() {
+  let dx = 0;
+  let dy = 0;
+
+  if (keys.ArrowLeft)  dx -= player.speed;
+  if (keys.ArrowRight) dx += player.speed;
+  if (keys.ArrowUp)    dy -= player.speed;
+  if (keys.ArrowDown)  dy += player.speed;
+
+  player.x += dx;
+  player.y += dy;
+
+  // 邊界限制
+  player.x = Math.max(0, Math.min(player.x, canvas.width - player.width));
+  player.y = Math.max(0, Math.min(player.y, canvas.height - player.height));
+}
+
+/* ===== 主更新 ===== */
+function update() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // 玩家
+  ctx.drawImage(playerImage, player.x, player.y, player.width, player.height);
+  movePlayer();
+  if (player.cooldown > 0) player.cooldown--;
+
+  // 玩家子彈
+  for (let i = bullets.length - 1; i >= 0; i--) {
+    const b = bullets[i];
+    b.y -= b.speed;
+    ctx.fillStyle = "gold";
+    ctx.fillRect(b.x, b.y, b.width, b.height);
+    if (b.y < 0) bullets.splice(i, 1);
+  }
+
+  // 敵人
+  for (let i = enemies.length - 1; i >= 0; i--) {
+    const e = enemies[i];
+    e.y += 2;
+    ctx.drawImage(enemyImage, e.x, e.y, e.width, e.height);
+    if (Math.random() < 0.01) enemyShoot(e);
+    if (e.y > canvas.height) enemies.splice(i, 1);
+  }
+
+  // 敵人子彈
+  for (let i = enemyBullets.length - 1; i >= 0; i--) {
+    const b = enemyBullets[i];
+    b.y += b.speed;
+    ctx.fillStyle = "red";
+    ctx.fillRect(b.x, b.y, b.width, b.height);
+    if (b.y > canvas.height) enemyBullets.splice(i, 1);
+  }
+
+  // 碰撞：子彈 vs 敵人
+  for (let i = bullets.length - 1; i >= 0; i--) {
+    for (let j = enemies.length - 1; j >= 0; j--) {
+      if (hit(bullets[i], enemies[j])) {
+        bullets.splice(i, 1);
+        enemies.splice(j, 1);
+        break;
+      }
+    }
+  }
+
+  // 碰撞：敵人子彈 vs 玩家
+  for (let i = enemyBullets.length - 1; i >= 0; i--) {
+    if (hit(enemyBullets[i], player)) {
+      enemyBullets.splice(i, 1);
+      player.health--;
+      if (player.health <= 0) {
+        alert("Game Over");
+        location.reload();
+      }
+    }
+  }
+
+  // 血量
+  ctx.fillStyle = "white";
+  ctx.font = "18px Arial";
+  ctx.fillText("HP: " + player.health, 10, 20);
+
+  requestAnimationFrame(update);
+}
+
+/* ===== 鍵盤控制 ===== */
+document.addEventListener("keydown", e => {
+  if (e.key in keys) keys[e.key] = true;
+  if (e.key === " ") shoot();
+});
+
+document.addEventListener("keyup", e => {
+  if (e.key in keys) keys[e.key] = false;
+});
+
+/* ===== 啟動 ===== */
+setInterval(createEnemy, 2000);
+update();
+</script>
+
+</body>
+</html>
